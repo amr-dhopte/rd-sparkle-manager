@@ -79,14 +79,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
+      { title: "RD Agent Pro" },
+      { name: "description", content: "RD PRO is a secure web app for Post Office agents to track monthly RD payments, auto-calculate interest, and launch personalized WhatsApp reminders." },
       { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { property: "og:title", content: "RD Agent Pro" },
+      { property: "og:description", content: "RD PRO is a secure web app for Post Office agents to track monthly RD payments, auto-calculate interest, and launch personalized WhatsApp reminders." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "RD Agent Pro" },
+      { name: "twitter:description", content: "RD PRO is a secure web app for Post Office agents to track monthly RD payments, auto-calculate interest, and launch personalized WhatsApp reminders." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/319196d5-03d1-473d-91a8-2dcf93656c1f/id-preview-800b59db--99717d8e-1305-412b-ba99-3370caea3609.lovable.app-1781029703846.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/319196d5-03d1-473d-91a8-2dcf93656c1f/id-preview-800b59db--99717d8e-1305-412b-ba99-3370caea3609.lovable.app-1781029703846.png" },
     ],
     links: [
       {
