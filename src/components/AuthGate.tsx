@@ -179,8 +179,8 @@ function AuthPage() {
               </button>
             )}
           </div>
-          <Input
-            type="password" required minLength={6}
+          <PasswordInput
+            required minLength={6}
             value={password} onChange={(e) => setPassword(e.target.value)}
             autoComplete={mode === "signup" ? "new-password" : "current-password"}
           />
