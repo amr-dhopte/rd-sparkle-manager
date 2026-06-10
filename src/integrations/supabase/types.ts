@@ -14,7 +14,151 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      agent_settings: {
+        Row: {
+          agency_name: string
+          agent_id: string
+          agent_name: string
+          current_rate: number
+          message_template: string
+          reminder_dismissed_for: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          agency_name?: string
+          agent_id?: string
+          agent_name?: string
+          current_rate?: number
+          message_template?: string
+          reminder_dismissed_for?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          agency_name?: string
+          agent_id?: string
+          agent_name?: string
+          current_rate?: number
+          message_template?: string
+          reminder_dismissed_for?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      customers: {
+        Row: {
+          account_number: string
+          age: number | null
+          created_at: string
+          group_id: string | null
+          id: string
+          interest_rate: number
+          mobile: string
+          name: string
+          rd_amount: number
+          start_date: string
+          tenure_months: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_number?: string
+          age?: number | null
+          created_at?: string
+          group_id?: string | null
+          id?: string
+          interest_rate?: number
+          mobile?: string
+          name: string
+          rd_amount?: number
+          start_date: string
+          tenure_months?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_number?: string
+          age?: number | null
+          created_at?: string
+          group_id?: string | null
+          id?: string
+          interest_rate?: number
+          mobile?: string
+          name?: string
+          rd_amount?: number
+          start_date?: string
+          tenure_months?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customers_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      groups: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      payments: {
+        Row: {
+          customer_id: string
+          id: string
+          mode: string
+          month: string
+          paid_at: string | null
+          user_id: string
+        }
+        Insert: {
+          customer_id: string
+          id?: string
+          mode: string
+          month: string
+          paid_at?: string | null
+          user_id: string
+        }
+        Update: {
+          customer_id?: string
+          id?: string
+          mode?: string
+          month?: string
+          paid_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
