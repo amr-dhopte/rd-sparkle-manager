@@ -183,7 +183,7 @@ function remapIdsToUUID(d: AppData): AppData {
 }
 
 async function reconcile(prev: AppData, next: AppData, userId: string) {
-  const ops: Promise<unknown>[] = [];
+  const ops: PromiseLike<unknown>[] = [];
 
   // Groups
   const prevG = new Map(prev.groups.map((g) => [g.id, g]));
