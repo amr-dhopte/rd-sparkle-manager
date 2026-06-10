@@ -1,7 +1,10 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Calculator, MessageSquare, Table, IndianRupee } from "lucide-react";
+import { LayoutDashboard, Calculator, MessageSquare, Table, IndianRupee, LogOut } from "lucide-react";
 import { ReminderBanner } from "./ReminderBanner";
 import { useAppData } from "@/lib/rd-store";
+import { AuthGate } from "./AuthGate";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "./ui/button";
 
 const NAV = [
   { to: "/", label: "Ledger", icon: LayoutDashboard },
@@ -11,6 +14,14 @@ const NAV = [
 ];
 
 export function AppLayout() {
+  return (
+    <AuthGate>
+      <AppShell />
+    </AuthGate>
+  );
+}
+
+function AppShell() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { data } = useAppData();
 
@@ -29,7 +40,7 @@ export function AppLayout() {
               </div>
             </div>
           </div>
-          <nav className="hidden gap-1 md:flex">
+          <nav className="hidden items-center gap-1 md:flex">
             {NAV.map((item) => {
               const Icon = item.icon;
               const active = pathname === item.to;
@@ -48,6 +59,15 @@ export function AppLayout() {
                 </Link>
               );
             })}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => supabase.auth.signOut()}
+              className="ml-2"
+              title="Sign out"
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
           </nav>
         </div>
         <nav className="flex gap-1 overflow-x-auto px-2 pb-2 md:hidden">
