@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, IndianRupee, Loader2 } from "lucide-react";
+import { PasswordInput } from "@/components/PasswordInput";
 import { toast } from "sonner";
 
 export function AuthGate({ children }: { children: ReactNode }) {
@@ -178,8 +179,8 @@ function AuthPage() {
               </button>
             )}
           </div>
-          <Input
-            type="password" required minLength={6}
+          <PasswordInput
+            required minLength={6}
             value={password} onChange={(e) => setPassword(e.target.value)}
             autoComplete={mode === "signup" ? "new-password" : "current-password"}
           />
@@ -255,11 +256,11 @@ function ResetPasswordPage({ onDone }: { onDone: () => void }) {
       <form onSubmit={submit} className="space-y-3">
         <div>
           <Label>New password</Label>
-          <Input type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />
+          <PasswordInput required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />
         </div>
         <div>
           <Label>Confirm password</Label>
-          <Input type="password" required minLength={6} value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" />
+          <PasswordInput required minLength={6} value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" />
         </div>
         <Button type="submit" className="w-full" disabled={loading}>
           {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
