@@ -260,7 +260,7 @@ function ResetPasswordPage({ onDone }: { onDone: () => void }) {
         </div>
         <div>
           <Label>Confirm password</Label>
-          <Input type="password" required minLength={6} value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" />
+          <PasswordInput required minLength={6} value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" />
         </div>
         <Button type="submit" className="w-full" disabled={loading}>
           {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
