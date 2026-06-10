@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 export type PaymentMode = "online" | "cash" | "paid" | "pending";
 
@@ -61,10 +62,10 @@ const defaultData: AppData = {
   },
 };
 
-function load(): AppData {
+function loadCache(): AppData {
   if (typeof window === "undefined") return defaultData;
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(cacheKey());
     if (!raw) return defaultData;
     const parsed = JSON.parse(raw) as AppData;
     return {
@@ -77,40 +78,286 @@ function load(): AppData {
   }
 }
 
-function save(data: AppData) {
+function saveCache(data: AppData) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  window.dispatchEvent(new Event("po-rd-data-changed"));
+  localStorage.setItem(cacheKey(), JSON.stringify(data));
+}
+
+// ====== Cloud-synced global store ======
+
+let currentUserId: string | null = null;
+let state: AppData = defaultData;
+let lastSynced: AppData = defaultData;
+let hydratedFlag = false;
+const subscribers = new Set<() => void>();
+let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
+let reloadDebounce: ReturnType<typeof setTimeout> | null = null;
+
+const LOCAL_FALLBACK_KEY = "po-rd-agent-data-v1";
+
+function cacheKey() {
+  return currentUserId ? `po-rd-agent-data-v1:${currentUserId}` : LOCAL_FALLBACK_KEY;
+}
+
+function notify() {
+  subscribers.forEach((fn) => fn());
+}
+
+function setState(next: AppData, opts: { markSynced?: boolean } = {}) {
+  state = next;
+  if (opts.markSynced) lastSynced = next;
+  saveCache(next);
+  notify();
+}
+
+function clone(d: AppData): AppData {
+  return JSON.parse(JSON.stringify(d));
+}
+
+function mapRowToCustomer(row: {
+  id: string; name: string; age: number | null; mobile: string;
+  account_number: string; rd_amount: number | string; start_date: string;
+  tenure_months: number; interest_rate: number | string; group_id: string | null;
+}, payments: Payment[]): Customer {
+  return {
+    id: row.id,
+    name: row.name,
+    age: row.age,
+    mobile: row.mobile,
+    accountNumber: row.account_number,
+    rdAmount: Number(row.rd_amount),
+    startDate: row.start_date,
+    tenureMonths: row.tenure_months,
+    interestRate: Number(row.interest_rate),
+    groupId: row.group_id,
+    payments,
+  };
+}
+
+async function fetchFromCloud(userId: string): Promise<AppData> {
+  const [gs, cs, ps, st] = await Promise.all([
+    supabase.from("groups").select("*"),
+    supabase.from("customers").select("*"),
+    supabase.from("payments").select("*"),
+    supabase.from("agent_settings").select("*").eq("user_id", userId).maybeSingle(),
+  ]);
+  const paymentsByCust = new Map<string, Payment[]>();
+  for (const p of ps.data ?? []) {
+    const list = paymentsByCust.get(p.customer_id) ?? [];
+    list.push({ month: p.month, mode: p.mode as PaymentMode, timestamp: p.paid_at });
+    paymentsByCust.set(p.customer_id, list);
+  }
+  const customers = (cs.data ?? []).map((row) =>
+    mapRowToCustomer(row, (paymentsByCust.get(row.id) ?? []).sort((a, b) => a.month.localeCompare(b.month))),
+  );
+  const groups: Group[] = (gs.data ?? []).map((g) => ({
+    id: g.id,
+    name: g.name,
+    customerIds: customers.filter((c) => c.groupId === g.id).map((c) => c.id),
+  }));
+  const settings: Settings = st.data
+    ? {
+        agentName: st.data.agent_name,
+        agentId: st.data.agent_id,
+        agencyName: st.data.agency_name,
+        messageTemplate: st.data.message_template,
+        currentRate: Number(st.data.current_rate),
+        reminderDismissedFor: st.data.reminder_dismissed_for,
+      }
+    : { ...defaultData.settings };
+  return { customers, groups, settings };
+}
+
+function remapIdsToUUID(d: AppData): AppData {
+  const groupMap = new Map(d.groups.map((g) => [g.id, crypto.randomUUID()] as const));
+  const custMap = new Map(d.customers.map((c) => [c.id, crypto.randomUUID()] as const));
+  return {
+    settings: d.settings,
+    groups: d.groups.map((g) => ({ ...g, id: groupMap.get(g.id)!, customerIds: g.customerIds.map((cid) => custMap.get(cid) ?? cid) })),
+    customers: d.customers.map((c) => ({
+      ...c,
+      id: custMap.get(c.id)!,
+      groupId: c.groupId ? groupMap.get(c.groupId) ?? null : null,
+    })),
+  };
+}
+
+async function reconcile(prev: AppData, next: AppData, userId: string) {
+  const ops: Promise<unknown>[] = [];
+
+  // Groups
+  const prevG = new Map(prev.groups.map((g) => [g.id, g]));
+  const nextG = new Map(next.groups.map((g) => [g.id, g]));
+  for (const g of next.groups) {
+    const old = prevG.get(g.id);
+    if (!old) ops.push(supabase.from("groups").insert({ id: g.id, user_id: userId, name: g.name }));
+    else if (old.name !== g.name) ops.push(supabase.from("groups").update({ name: g.name }).eq("id", g.id));
+  }
+  for (const g of prev.groups) if (!nextG.has(g.id)) ops.push(supabase.from("groups").delete().eq("id", g.id));
+
+  // Customers
+  const prevC = new Map(prev.customers.map((c) => [c.id, c]));
+  const nextC = new Map(next.customers.map((c) => [c.id, c]));
+  for (const c of next.customers) {
+    const old = prevC.get(c.id);
+    const row = {
+      id: c.id, user_id: userId, name: c.name, age: c.age, mobile: c.mobile,
+      account_number: c.accountNumber, rd_amount: c.rdAmount, start_date: c.startDate,
+      tenure_months: c.tenureMonths, interest_rate: c.interestRate, group_id: c.groupId ?? null,
+    };
+    if (!old) ops.push(supabase.from("customers").insert(row));
+    else if (
+      old.name !== c.name || old.age !== c.age || old.mobile !== c.mobile ||
+      old.accountNumber !== c.accountNumber || old.rdAmount !== c.rdAmount ||
+      old.startDate !== c.startDate || old.tenureMonths !== c.tenureMonths ||
+      old.interestRate !== c.interestRate || old.groupId !== c.groupId
+    ) {
+      const { id: _id, user_id: _u, ...upd } = row;
+      ops.push(supabase.from("customers").update(upd).eq("id", c.id));
+    }
+
+    // Payments diff per customer
+    const oldP = new Map((old?.payments ?? []).map((p) => [p.month, p]));
+    const newP = new Map(c.payments.map((p) => [p.month, p]));
+    for (const p of c.payments) {
+      const prior = oldP.get(p.month);
+      if (!prior) {
+        ops.push(supabase.from("payments").insert({
+          user_id: userId, customer_id: c.id, month: p.month, mode: p.mode, paid_at: p.timestamp,
+        }));
+      } else if (prior.mode !== p.mode || prior.timestamp !== p.timestamp) {
+        ops.push(supabase.from("payments").update({ mode: p.mode, paid_at: p.timestamp })
+          .eq("customer_id", c.id).eq("month", p.month));
+      }
+    }
+    for (const p of old?.payments ?? []) {
+      if (!newP.has(p.month)) {
+        ops.push(supabase.from("payments").delete().eq("customer_id", c.id).eq("month", p.month));
+      }
+    }
+  }
+  for (const c of prev.customers) if (!nextC.has(c.id)) ops.push(supabase.from("customers").delete().eq("id", c.id));
+
+  // Settings
+  const ps = prev.settings, ns = next.settings;
+  if (
+    ps.agentName !== ns.agentName || ps.agentId !== ns.agentId || ps.agencyName !== ns.agencyName ||
+    ps.messageTemplate !== ns.messageTemplate || ps.currentRate !== ns.currentRate ||
+    ps.reminderDismissedFor !== ns.reminderDismissedFor
+  ) {
+    ops.push(supabase.from("agent_settings").upsert({
+      user_id: userId,
+      agent_name: ns.agentName,
+      agent_id: ns.agentId,
+      agency_name: ns.agencyName,
+      message_template: ns.messageTemplate,
+      current_rate: ns.currentRate,
+      reminder_dismissed_for: ns.reminderDismissedFor,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "user_id" }));
+  }
+
+  const results = await Promise.all(ops);
+  for (const r of results) {
+    const err = (r as { error?: { message: string } })?.error;
+    if (err) console.error("[rd-store] sync error", err);
+  }
+}
+
+function scheduleReload() {
+  if (reloadDebounce) clearTimeout(reloadDebounce);
+  reloadDebounce = setTimeout(async () => {
+    if (!currentUserId) return;
+    const fresh = await fetchFromCloud(currentUserId);
+    setState(fresh, { markSynced: true });
+  }, 250);
+}
+
+function subscribeRealtime(userId: string) {
+  if (realtimeChannel) supabase.removeChannel(realtimeChannel);
+  realtimeChannel = supabase
+    .channel(`rd-sync-${userId}`)
+    .on("postgres_changes", { event: "*", schema: "public", table: "customers", filter: `user_id=eq.${userId}` }, scheduleReload)
+    .on("postgres_changes", { event: "*", schema: "public", table: "groups", filter: `user_id=eq.${userId}` }, scheduleReload)
+    .on("postgres_changes", { event: "*", schema: "public", table: "payments", filter: `user_id=eq.${userId}` }, scheduleReload)
+    .on("postgres_changes", { event: "*", schema: "public", table: "agent_settings", filter: `user_id=eq.${userId}` }, scheduleReload)
+    .subscribe();
+}
+
+export async function initStoreForUser(userId: string) {
+  currentUserId = userId;
+  hydratedFlag = false;
+  // show cache immediately
+  state = loadCache();
+  notify();
+
+  const cloud = await fetchFromCloud(userId);
+  const cloudEmpty = cloud.customers.length === 0 && cloud.groups.length === 0;
+
+  // Migrate any pre-auth local data once
+  let legacy: AppData | null = null;
+  try {
+    const raw = typeof window !== "undefined" ? localStorage.getItem(LOCAL_FALLBACK_KEY) : null;
+    if (raw) legacy = JSON.parse(raw) as AppData;
+  } catch { /* ignore */ }
+
+  if (cloudEmpty && legacy && (legacy.customers?.length || legacy.groups?.length)) {
+    const migrated = remapIdsToUUID({
+      ...defaultData,
+      ...legacy,
+      settings: { ...defaultData.settings, ...legacy.settings },
+    });
+    setState(migrated);
+    await reconcile(cloud, migrated, userId);
+    lastSynced = migrated;
+    try { localStorage.removeItem(LOCAL_FALLBACK_KEY); } catch { /* ignore */ }
+  } else {
+    setState(cloud, { markSynced: true });
+  }
+
+  hydratedFlag = true;
+  notify();
+  subscribeRealtime(userId);
+}
+
+export function teardownStore() {
+  if (realtimeChannel) {
+    supabase.removeChannel(realtimeChannel);
+    realtimeChannel = null;
+  }
+  currentUserId = null;
+  state = defaultData;
+  lastSynced = defaultData;
+  hydratedFlag = false;
+  notify();
 }
 
 export function useAppData() {
-  const [data, setData] = useState<AppData>(defaultData);
-  const [hydrated, setHydrated] = useState(false);
-
+  const [, force] = useState(0);
   useEffect(() => {
-    setData(load());
-    setHydrated(true);
-    const handler = () => setData(load());
-    window.addEventListener("po-rd-data-changed", handler);
-    window.addEventListener("storage", handler);
-    return () => {
-      window.removeEventListener("po-rd-data-changed", handler);
-      window.removeEventListener("storage", handler);
-    };
+    const fn = () => force((n) => n + 1);
+    subscribers.add(fn);
+    return () => { subscribers.delete(fn); };
   }, []);
 
   const update = useCallback((updater: (d: AppData) => AppData) => {
-    const next = updater(load());
-    save(next);
-    setData(next);
+    const prev = state;
+    const next = updater(clone(prev));
+    setState(next);
+    if (currentUserId) {
+      reconcile(lastSynced, next, currentUserId)
+        .then(() => { lastSynced = next; })
+        .catch((e) => console.error("[rd-store] reconcile failed", e));
+    }
   }, []);
 
-  return { data, hydrated, update };
+  return { data: state, hydrated: hydratedFlag, update };
 }
 
 // ========= Helpers =========
 
 export function uid() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 }
 
