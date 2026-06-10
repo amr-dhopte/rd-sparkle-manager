@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, IndianRupee, Loader2 } from "lucide-react";
+import { PasswordInput } from "@/components/PasswordInput";
 import { toast } from "sonner";
 
 export function AuthGate({ children }: { children: ReactNode }) {
