@@ -256,7 +256,7 @@ function ResetPasswordPage({ onDone }: { onDone: () => void }) {
       <form onSubmit={submit} className="space-y-3">
         <div>
           <Label>New password</Label>
-          <Input type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />
+          <PasswordInput required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />
         </div>
         <div>
           <Label>Confirm password</Label>
