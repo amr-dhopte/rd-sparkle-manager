@@ -251,6 +251,9 @@ function ResetPasswordPage({ onDone }: { onDone: () => void }) {
         <div>
           <Label>New password</Label>
           <PasswordInput required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Must be at least 6 characters. Use a mix of letters, numbers, and symbols for a stronger password.
+          </p>
         </div>
         <div>
           <Label>Confirm password</Label>
