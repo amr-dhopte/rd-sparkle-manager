@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
+import { sendResendPasswordReset } from "@/lib/password-reset.functions";
 import { initStoreForUser, teardownStore } from "@/lib/rd-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -92,22 +93,15 @@ function AuthPage() {
     }
     setLoading(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(trimmed, {
-        redirectTo: `${window.location.origin}/`,
+      await sendResendPasswordReset({
+        data: { email: trimmed, redirectTo: `${window.location.origin}/` },
       });
-      if (error) {
-        const msg = error.message.toLowerCase();
-        if (msg.includes("not found") || msg.includes("no user")) {
-          toast.error("No account found with this email address.");
-        } else {
-          toast.error(error.message);
-        }
-      } else {
-        toast.success(
-          "A secure password reset link has been sent to your registered email address. Please check your inbox and spam folder."
-        );
-        setMode("signin");
-      }
+      toast.success(
+        "If an account exists for this email, a password reset link has been sent. Please check your inbox and spam folder."
+      );
+      setMode("signin");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not send reset email.");
     } finally {
       setLoading(false);
     }
