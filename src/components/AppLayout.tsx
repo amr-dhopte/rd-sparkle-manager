@@ -91,6 +91,7 @@ function AppShell() {
               </Link>
             );
           })}
+          <ThemeToggle />
         </nav>
       </header>
       <ReminderBanner />
