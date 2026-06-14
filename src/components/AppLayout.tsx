@@ -60,6 +60,7 @@ function AppShell() {
                 </Link>
               );
             })}
+            <ThemeToggle />
             <Button
               variant="ghost"
               size="sm"
