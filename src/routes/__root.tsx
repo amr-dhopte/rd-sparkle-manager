@@ -13,6 +13,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AppLayout } from "../components/AppLayout";
 import { Toaster } from "../components/ui/sonner";
+import { ThemeProvider } from "../components/ThemeProvider";
 
 function NotFoundComponent() {
   return (
@@ -124,8 +125,10 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AppLayout />
-      <Toaster richColors position="top-right" />
+      <ThemeProvider>
+        <AppLayout />
+        <Toaster richColors position="top-right" />
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

@@ -5,6 +5,7 @@ import { useAppData } from "@/lib/rd-store";
 import { AuthGate } from "./AuthGate";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "./ui/button";
+import { ThemeToggle } from "./ThemeToggle";
 
 const NAV = [
   { to: "/", label: "Ledger", icon: LayoutDashboard },
@@ -59,6 +60,7 @@ function AppShell() {
                 </Link>
               );
             })}
+            <ThemeToggle />
             <Button
               variant="ghost"
               size="sm"
@@ -89,6 +91,7 @@ function AppShell() {
               </Link>
             );
           })}
+          <ThemeToggle />
         </nav>
       </header>
       <ReminderBanner />
