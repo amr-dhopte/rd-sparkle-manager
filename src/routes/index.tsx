@@ -5,11 +5,30 @@ import {
   currentMonthKey,
   formatINR,
   uid,
+  formatMonth,
+  monthKeyFromDate,
   type Customer,
 } from "@/lib/rd-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Users, CheckCheck, Pencil, Trash2 } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Users,
+  CheckCheck,
+  Pencil,
+  Trash2,
+  TrendingUp,
+  TrendingDown,
+  Wallet,
+  AlertCircle,
+  Activity,
+  IndianRupee,
+  UserPlus,
+  Eye,
+  MessageSquare,
+  Sparkles,
+} from "lucide-react";
 import { PaymentCell } from "@/components/PaymentCell";
 import { CustomerFormDialog } from "@/components/CustomerFormDialog";
 import { CustomerProfileDialog } from "@/components/CustomerProfileDialog";
@@ -20,8 +39,17 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 export const Route = createFileRoute("/")({
   head: () => ({
