@@ -50,7 +50,6 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-} from "recharts";
 
 export const Route = createFileRoute("/")({
   head: () => ({
